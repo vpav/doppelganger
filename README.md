@@ -1,9 +1,9 @@
 # doppelgänger - A tool to search for IDN lookalike/fake domains
 
-doppelgänger is a tool that creates permutations of domain names using lookalike unicode characters and identifies registered domains using dns queries. 
-It can be used to identify phishing domains.
+doppelgänger is a tool that creates permutations of domain names using [lookalike unicode characters](https://en.wikipedia.org/wiki/IDN_homograph_attack) and identifies registered domains using dns queries. 
+It can be used to identify phishing domains. Furthermore it finds [typosquatting](https://en.wikipedia.org/wiki/Typosquatting) domains.
 
-# Example
+### Example
 
 * original: example.com
 * eẋample.com (xn--eample-i77b.com)
@@ -14,8 +14,23 @@ It can be used to identify phishing domains.
 * examƿle.com (xn--examle-62b.com)
 * examᴘle.com (xn--examle-e35b.com)
 
-## Dry-run mode
+# Usage
 
+```
+./doppelganger.py example.com
+```
+
+#### Dry-run mode 
+
+If you just like to output the domains without performing a dns lookup, use the `--dry-run` or short `-d` flag.
+
+#### File-output
+
+You can use doppelgänger to output the found permutations to a file:
+```
+./doppelganger.py -o ./doppelgangers.list example.com
+```
+As with `--dry-run`, no dns lookups will be performed.
 
 ## TLD support
 
@@ -79,21 +94,28 @@ It can be used to identify phishing domains.
 
 ## Lack of support for all TLDs
 
-## Big data
+## Too big data
 
-Not the buzzword - this tools creates a large amount of permutations. 
+This tools creates a large amount of permutations. 
 If your domain name is long enough, there are millions of possible doppelganger domains. Atm, this tool works in RAM only. 
 So if you try to check a large number of domains and your system is ~straight outta memory~ running out of memory, this tool will fall back to check only domains where exactly one character has been replaced.
-This is not a big limitation though, as most mailicious actors will try to change as little characters as possible when creating phishing domans. 
+This is not a big limitation though, as most malicious actors will try to change as little characters as possible when creating phishing domans. 
 
 If I have time I'll add support for big data sets in the future.
 
-## DNS-Queries
+## DNS query speed
+
+Performing large numbers of unique dns queries to uncached domains in a short amount 
+of time can result in a block or a rate-limitation by your dns provider
+
+Furthermore this tool does the dns lookup sequentially resulting in poor performance.
+
+## 
 
 
 
 # TODOs
 
 * Add support to perform round-robin queries to a set of user selectable dns servers
-* 
+* check existence of domain by whois entries instead of dns
 
