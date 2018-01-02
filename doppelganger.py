@@ -406,44 +406,72 @@ def get_simple_permutations(sll, tld, lang_code='none'):
 
 # Class that holds and generates typo permutations
 class Typo:
-    def __init__(self, fqdn):
+    def __init__(self, fqdn, keymap):
         self.domain = Domain(fqdn)
         self.tld = self.domain.tld
         self.sll = self.domain.sll
         self.neighbors = []
+        self.km = keymap
 
     # swap chars next to each other
     def generate_swap(self):
+        ret_domains = []
+        if show_debug:
+            print("Swaps:")
         for i in range(0, len(self.sll) - 1):
             # print( self.sll[i:i+2] )
             typodomain = self.sll[0:i] + self.sll[i+1] + self.sll[i] + self.sll[i+2:]
-            print(typodomain + "." + self.tld)
+            if show_debug:
+                print(typodomain + "." + self.tld)
+            ret_domains.append(typodomain + "." + self.tld)
+        return ret_domains
 
     # remove single chars
     def generate_missing(self):
+        ret_domains = []
+        if show_debug:
+            print("Missing Chars:")
         for i in range(0, len(self.sll)):
             typodomain = self.sll[0:i] + self.sll[i + 1:]
-            print(typodomain + "." + self.tld)
+            if show_debug:
+                print(typodomain + "." + self.tld)
+            ret_domains.append(typodomain + "." + self.tld)
+        return ret_domains
 
     # double chars
     def generate_double(self):
+        ret_domains = []
+        if show_debug:
+            print("Double Chars:")
         for i in range(0, len(self.sll)):
             typodomain = self.sll[0:i] + self.sll[i] + self.sll[i] + self.sll[i + 1:]
-            print(typodomain + "." + self.tld)
+            if show_debug:
+                print(typodomain + "." + self.tld)
+            ret_domains.append(typodomain + "." + self.tld)
+        return ret_domains
 
     # split domain (i.e.   exa.mple.com instead of example.com)
     def generate_split(self):
+        ret_domains = []
+        if show_debug:
+            print("Split Domain:")
         for i in range(0, len(self.sll) - 1):
             typodomain = self.sll[i + 1:]
-            print(typodomain + "." + self.tld)
+            if show_debug:
+                print(typodomain + "." + self.tld)
+            ret_domains.append(typodomain + "." + self.tld)
+        return ret_domains
 
     # neighbor chars next to the key on different keyboard layouts
-    def generate_neighbor(self, keymap):
-        if keymap == Typo.KeyMap.QWERTY:
+    def generate_neighbor(self):
+        ret_domains = []
+        if show_debug:
+            print("Neighbors:")
+        if self.km == Typo.KeyMap.QWERTY:
             km_file = "qwerty.csv"
-        elif keymap == Typo.KeyMap.QWERTZ:
+        elif self.km == Typo.KeyMap.QWERTZ:
             km_file = "qwertz.csv"
-        elif keymap == Typo.KeyMap.AZERTY:
+        elif self.km == Typo.KeyMap.AZERTY:
             km_file = "azerty.csv"
         else:
             print(ierr + " ERROR - Unknown or unspecified Keymap!")
@@ -462,8 +490,41 @@ class Typo:
 
             for h in range(1, len(alts)):
                 if alts[h] not in (None, ""):
-                    nb = self.sll[:i] + alts[h] + self.sll[i + 1:] + '.' + self.tld
-                    print(nb)
+                    typodomain = self.sll[:i] + alts[h] + self.sll[i + 1:]
+                    if show_debug:
+                        print(typodomain + '.' + self.tld)
+                    ret_domains.append(typodomain + "." + self.tld)
+
+        return ret_domains
+
+    def check(self):
+        typo_domains = []
+        typo_domains.extend(self.generate_swap())
+        typo_domains.extend(self.generate_double())
+        typo_domains.extend(self.generate_missing())
+        typo_domains.extend(self.generate_split())
+        typo_domains.extend(self.generate_neighbor())
+
+        if show_permutations:
+            for p in typo_domains:
+                print(p)
+
+        if parsed_args.output_file:
+            print(iinfo + "writing doppelgangers to file...")
+            with open(parsed_args.output_file, 'w') as file:
+                for perm in typo_domains:
+                    file.writelines(perm.encode("idna").decode() + "\n")
+            sys.exit()
+
+        if parsed_args.dry_run:
+            print(isucc + " typo domains for " + self.domain.fqdn + ":")
+            for perm in typo_domains:
+                print(perm, end='')
+                print(" - " + perm.encode("idna").decode())
+            sys.exit()
+
+        check_dns(typo_domains)
+
 
     class KeyMap:
         QWERTY = 1
@@ -492,6 +553,7 @@ class Domain:
 
         self.tld = fqdn.rsplit('.')[-1]
         self.sll = fqdn.rsplit('.')[-2]
+        self.fqdn = fqdn
 
     def is_supported(self):
         # return true if tld is in supported list
@@ -518,17 +580,8 @@ class Domain:
 # check fqdn for typo domains
 def check_typo(fqdn):
 
-    typo = Typo(fqdn)
-    print("Swaps:")
-    typo.generate_swap()
-    print("Missing Chars:")
-    typo.generate_missing()
-    print("Double Chars:")
-    typo.generate_double()
-    print("Split Domain:")
-    typo.generate_split()
-    print("Neighbors:")
-    typo.generate_neighbor(typo.KeyMap.QWERTZ)
+    typo = Typo(fqdn, Typo.KeyMap.QWERTY)
+    typo.check()
 
 
 # check fqdn for doppelganger domains
@@ -603,10 +656,20 @@ def check_doppel(fqdn):
         sys.exit()
 
     # DNS Check
+    check_dns(unique_permutations)
+
+
+def check_dns(domain_permutations):
+    # DNS Check
     print("Checking DNS...")
 
+    nx_tlds = []
+    existing_tlds = []
+    num_permutations = len(domain_permutations)
+
+
     current_num = 0
-    for domain in unique_permutations:
+    for domain in domain_permutations:
 
         sys.stdout.write("Progress: %d / %d \r" % ((current_num + 1), num_permutations))
         sys.stdout.flush()
