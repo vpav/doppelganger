@@ -29,8 +29,51 @@ It can be used to identify phishing domains.
 | .ag | :x: no |
 | .ar | :x: no |
 | .at  | :white_check_mark: complete |
-| .ag | :large_blue_circle: IDN not supported |
-
+| .au | :large_blue_circle: IDN not supported |
+| .be| :x: no |
+| .br | :x: no |
+| .ca | :large_blue_circle: [not applicable](https://cira.ca/assets/Documents/Legal/IDN/faq.pdf) |
+| .ch | :white_check_mark: complete |
+| .cn | :x: no |
+| .co | :x: no |
+| .cz | :x: no |
+| .de | :white_check_mark: complete |
+| .dk | :white_check_mark: complete |
+| .es | :x: no |
+| .eu | :x: no |
+| .fi | :x: no |
+| .fm | :x: no |
+| .fr | :white_check_mark: complete |
+| .gr | :x: no |
+| .hu | :x: no |
+| .hr | :x: no |
+| .ie | :x: no |
+| .in | :x: no |
+| .io | :x: no |
+| .ir | :large_blue_circle: IDN not supported |
+| .is | :x: no |
+| .it | :x: no |
+| .jp | :x: no |
+| .me | :x: no |
+| .nl | :large_blue_circle: IDN not supported |
+| .no | :white_check_mark: complete |
+| .pl | :x: no |
+| .pm | :white_check_mark: complete |
+| .рф (rf) | :x: no |
+| .rs | :x: no |
+| .ru | :large_blue_circle: IDN not supported |
+| .tf | :white_check_mark: complete |
+| .tr | :x: no |
+| .tv | :x: no |
+| .tw | :x: no |
+| .uk | :large_blue_circle: IDN not supported |
+| .us | :large_blue_circle: IDN not supported |
+| .wf | :white_check_mark: complete |
+| .yt | :white_check_mark: complete |
+| **sTLDs** |
+| .biz | :x: no |
+| .info | :x: no |
+| .name | :x: no |
 
 # Limitations
 
