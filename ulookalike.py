@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-#  doppelganger.py
+#  ulookalike.py
 #  
 #  Copyright 2017 Viktor Pavlovic <vi@phy.re>
 #  
@@ -21,9 +21,7 @@
 #  
 
 #
-# Doppelgänger is a tool that creates permutations of domain names using lookalike
-# unicode characters and identifies registered domains using dns queries.
-# It can be used to identify phishing domains.
+# Doppelgänger
 #
 #
 
@@ -31,26 +29,25 @@
 # TODO:
 #
 # convert input domain to lowercase
-# dns round robin for speed increase / not get blocked
-# use better algorithm for permutation generation (ram + speed)
-# use hdf5 for working with datasets larger than ram
-# move dns check to function
-# complete typo check
+#
 
+#from __future__ import print_function
 import itertools
 import dns.resolver
-from colorama import init, Fore, Style
+from colorama import init, Fore, Back, Style
 import csv
+import getopt, sys
 import argparse
 import textwrap
 import time
-import datetime
+
 
 show_char_alts = False  # show lookalike chars for each character
 show_permutations = False  # show all permutations for domain
-show_debug = False  # enable debug / verbose output
+show_debug = True
 show_colors = True  # enable color console output
-show_time = False  # enable benchmark for permutation finding
+
+#max_permutations = 2000 # number of permutations that can be done in reasonable time using the original (complete) algorithm
 
 iinfo = "[i] "
 isucc = "[+] "
@@ -59,11 +56,10 @@ ierr = "[-] "
 
 supported_tlds = ['com', 'org', 'at', 'ca', 'ch', 'de', 'dk', 'fr', 'no', 'pm', 'se', 'tf', 'wf', 'yt']
 
-
-class MainOptions:
+class mainOptions():
     def __init__(self):
         # number of permutations that can be done in reasonable time using the original (complete) algorithm
-        self.max_permutations = 20000
+        self.max_permutations = 2000
 
         # Use Colors
         self.show_colors = True
@@ -77,8 +73,7 @@ class MainOptions:
         self.data = []
 
 
-opt = MainOptions()
-
+opt = mainOptions()
 
 def init_helpers():
     global iinfo, iwarn, isucc, ierr
@@ -94,6 +89,97 @@ def init_helpers():
         isucc = "[+] "
         iwarn = "[!] "
         ierr = "[-] "
+
+
+def tmp_chars():
+    newtable = []
+    with open('com_latin_in.csv', newline='', encoding='utf-8') as csvfile:
+        spamreader = csv.reader(csvfile, delimiter=',', quotechar='"')
+        for row in spamreader:
+            #print(''.join(row))
+            if row[0].startswith('U+'):
+                # print(row)
+                ucode = str(row[0]).split('U+')[1]
+                print(ucode + " - " + chr(int(ucode, 16)))
+                newrow = [row[0], row[1], chr(int(ucode, 16)), "0x" + str(ucode)]
+                newtable.append(newrow)
+    with open('com_latin_out.csv', mode='w+', newline='', encoding='utf-8') as outfile:
+        fwriter = csv.writer(outfile, delimiter=',', quotechar='"')
+        for row in newtable:
+            fwriter.writerow(row)
+
+            '''
+            for field in row:
+                if field != "":
+                    # print(''.join(field))
+                    if field.startswith('U+'):
+                        ucode = str(field).split('U+')[1]
+                        print(ucode + " - " + chr(int(ucode, 16)))
+            '''
+
+            '''
+            if c == '':
+                r = [0x0001, 0x0002]
+            elif c == '':
+            '''
+
+
+def write_code():
+    original_chars = {}
+
+
+    with open('com_latin_final.csv', newline='', encoding='utf-8') as charfile:
+        spamreader = csv.reader(charfile, delimiter=',', quotechar='"')
+        for row in spamreader:
+            # print(''.join(row))
+            if row[0].startswith('U+'):
+                # print(row)
+                achar = row[2]
+                hcode = row[3]
+                orig1 = row[4]
+                orig2 = row[5]
+                if row[4] != "":
+                    if orig1 not in original_chars:
+                        original_chars[orig1] = [hcode]
+                    else:
+                        original_chars[orig1].append(hcode)
+
+                    print(achar + " - " + orig1)
+                    print(original_chars[orig1])
+
+                if row[5] != "":
+                    if orig2 not in original_chars:
+                        original_chars[orig2] = [hcode]
+                    else:
+                        original_chars[orig2].append(hcode)
+
+                    print(achar + " - " + orig2)
+                    print(original_chars[orig2])
+                '''
+                ucode = str(row[0]).split('U+')[1]
+                print(ucode + " - " + chr(int(ucode, 16)))
+                newrow = [row[0], row[1], chr(int(ucode, 16)), "0x" + str(ucode)]
+                newtable.append(newrow)
+                '''
+    pycode = ""
+    initial_line = True
+    for asciichar, altchars in sorted(original_chars.items()):
+        if initial_line:
+            ifc = "if"
+            initial_line = False
+        else:
+            ifc = "elif"
+
+        line1 = ifc + " c == '" + asciichar + "':"
+        line2 = "    r = ["
+        for xcode in altchars:
+            line2 += xcode.strip()
+            line2 += ", "
+        line2 = line2[:-2]  # remove last comma
+        line2 += "]"
+        pycode += (line1 + '\n' + line2 + '\n\n')
+
+    print(pycode)
 
 
 class PermutationError(Exception):
@@ -143,6 +229,7 @@ def show_tld_support():
     print("de     | " + ccomplete)
     print("dk     | " + ccomplete)
 
+
     print("es     | no")
     print("eu     | no")  #
 
@@ -169,13 +256,12 @@ def show_tld_support():
     print("nl     | " + cnotsupported)
     print("no     | " + ccomplete)
 
-    print("pl     | no")  # 4 language sets: latin, greek, cyrillic, -
-    # lookalike check in place hebrew https://www.dns.pl/IDN/idn-registration-policy.txt
+    print("pl     | no") # 4 language sets: latin, greek, cyrillic, - lookalike check in place hebrew https://www.dns.pl/IDN/idn-registration-policy.txt
     print("pm     | " + ccomplete)
 
     print("рф (rf)| no")
-    print("rs     | no")
     print("ru     | " + cnotsupported)
+    print("rs     | no")
 
     print("se     | " + cpartial + " - no hebrew support" + cpartialend)
 
@@ -183,19 +269,50 @@ def show_tld_support():
     print("tr     | no")
     print("tv     | no")
     print("tw     | no")
+
     print("uk     | " + cnotsupported)
     print("us     | " + cnotsupported)
+
     print("wf     | " + ccomplete)
+
     print("yt     | " + ccomplete)
+
+
+
+
+
+def usage():
+    print("doppelganger - A tool to search for IDN lookalike/fake domains")
+    print('\u00a9 2017 Viktor Pavlovic')
+    print("")
+    print("Usage: doppelganger.py [options] <original fqdn>")
+    print("")
+    print("")
+    print("OPTIONS")
+    print("")
+    print("")
+    print("-h --help                  show this page. duh.")
+    print("-p --max-permutations=N    number of calculated permutations after a switch to a simpler algorithm is done.")
+    print("                           By default this software looks for all doppelganger characters, however on")
+    print("                           domains with less restrictive IDN rules this can easily result in several million")
+    print("                           permutations that would take really long to check.")
+    print("                           Simpler algorithm: Modify only one character at a time.")
+    print("                           Defaults to 2000")
+    print("-s --tld-support           Show a table of supported TLDs.")
+    print("-t --timing=N              Set a delay of N ms between DNS queries to prevent flooding DNS servers")
+    print("")
+    print("General Note: Some characters seem to be easily distinguishable from others. However on some fonts, sizes, ")
+    print("uppercase letters, etc. these could look alike, so they are included just to be sure.")
+    print("")
+    print("")
 
 
 def main(args):
     global parsed_args
     global show_colors
-    global show_debug
     parser = argparse.ArgumentParser(prog='doppelganger',
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
-                                     description=textwrap.dedent('''doppelgänger - A tool to search for IDN lookalike/fake domains
+                                     description=textwrap.dedent('''doppelganger - A tool to search for IDN lookalike/fake domains
                                                  \nCopyright \u00a9 2017 Viktor Pavlovic
 \n This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -209,7 +326,7 @@ def main(args):
 
  You should have received a copy of the GNU General Public License
  along with this program.  If not, see http://www.gnu.org/licenses/ .'''),
-                                     epilog='''General Note: Some characters seem to be easily distinguishable from others.
+        epilog='''General Note: Some characters seem to be easily distinguishable from others.
               However on some fonts, sizes, uppercase letters, etc. these
               could look alike, so they are included just to be sure.
 
@@ -217,31 +334,23 @@ Another Note: Keep in mind that while some doppelganger domains are created
               with malicious intent, some are not. Some domains identified by
               this tool were probably not meant to be a doppelganger of the
               original.''')
-    parser.add_argument("-1", "--simple", help="Force simple algorithm: Modify only one character at a time. "
-                                               "Overrides --max-permutations (-p) setting.",
-                        action="store_true")
     parser.add_argument("-c", "--colors", help="Switch output colors on (1) and off (0). Defaults to on.",
                         type=int, choices=[0, 1], default=0)
     parser.add_argument("-d", "--dry-run", help="Create and output permutations, don't do any DNS requests.",
                         action="store_true")
-    parser.add_argument("-k", "--keymap", help="Use specified keymap for finding typo domains.",
-                        type=str, choices=['qwerty', 'qwertz', 'azerty'], default='qwerty')
-    parser.add_argument("-o", "--output-file", help="Output permutations to file, don't do anything else.",
-                        type=str, metavar="Filename")
     parser.add_argument("-p", "--max-permutations", help="number of calculated permutations after a switch to a simpler"
                                                          " algorithm is done. By default this software looks for all "
                                                          "doppelganger characters, however on domains with less "
                                                          "restrictive IDN rules this can easily result in several "
                                                          "million permutations that would take really long to check. "
                                                          "Simpler algorithm: Modify only one character at a time. "
-                                                         "Defaults to 20000",
-                        type=int, default=20000)
+                                                         "Defaults to 2000",
+                        type=int, default=2000)
     parser.add_argument("-s", "--tld-support", help="Show a table of supported TLDs.",
                         action="store_true")
     parser.add_argument("-t", "--timing", help="Set a ms delay between DNS queries to prevent flooding DNS servers",
                         type=int, default=0)
     parser.add_argument("-v", "--verbose", action="count", help="verbose output", default=0)
-    parser.add_argument("-y", "--typo-only", action="store_true", help="Generate typos, not doppelgangers", default=0)
     parser.add_argument("domain", help="the fqdn you want to check", nargs='?')
     parsed_args = parser.parse_args()
     if parsed_args.colors:
@@ -258,13 +367,9 @@ Another Note: Keep in mind that while some doppelganger domains are created
         parser.print_help()
         sys.exit()
 
-    if parsed_args.verbose:
-        show_debug = True
-
-    if parsed_args.typo_only:
-        check_typo(parsed_args.domain)
-    else:
-        check_doppel(parsed_args.domain)
+    # write_code()
+    checkDoppel(parsed_args.domain)
+    # checkDoppel("ubedoga.org")
     return 0
 
 
@@ -345,7 +450,8 @@ def get_permutations(sll, tld, lang_code='none'):
             return all_permutations
 
     if tld == 'se' and lang_code == 'hebrew':
-        if ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'j', 'k', 'm', 'p', 'r', 's', 'v', 'w', 'z']:
+        #if ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z']
+        if ['a','b','c','d','e','f','g','h','j','k','m','p','r','s','v','w','z']:
             if show_debug:
                 print('some letters are not available in hebrew - no alternatives.')
             return all_permutations
@@ -366,116 +472,38 @@ def get_permutations(sll, tld, lang_code='none'):
         pos += 1
         sll_alts.append(curr_char)
 
-    if parsed_args.simple:
-        print(iinfo + "Using simpler algorithm (will contain only domains with one modified character)")
-        all_permutations = get_simple_permutations(sll, tld, lang_code)
-    else:
-        try:
-            for permutation in getcombinations(sll_alts):
-                perm_str = ''.join(map(str, permutation))
-                all_permutations.append(perm_str + '.' + tld)
-            if show_debug:
-                print("Len of all perms: " + str(len(all_permutations)))
+    try:
+        for permutation in getcombinations(sll_alts):
+            perm_str = ''.join(map(str, permutation))
+            all_permutations.append(perm_str + '.' + tld)
+        print("Len of all perms: " + str(len(all_permutations)))
+        if len(all_permutations) > parsed_args.max_permutations:
+            raise PermutationError(ierr + "Too Many Permutations")
 
-            if len(all_permutations) > parsed_args.max_permutations:
-                raise PermutationError(ierr + "Too Many Permutations")
+    except PermutationError as e:
+        print(ierr + "Too Many Permutations")
+        print(iinfo + "Trying simpler algorithm (will contain only domains with one modified character)")
+        all_permutations = []
 
-        except PermutationError:
-            print(ierr + "Too Many Permutations (max-permutations threshold)")
-            print(iinfo + "Trying simpler algorithm (will contain only domains with one modified character)")
-            all_permutations = get_simple_permutations(sll, tld, lang_code)
+        idx = 0
+        for c in sll:
+            for altc in alt_chars(c, tld, lang_code):
+                newperm = sll[:idx] + chr(int(altc)) + sll[idx + 1:]  # replace original with altchar
+                all_permutations.append(newperm + '.' + tld)
+            idx += 1
 
-        except MemoryError:
-            print(ierr + "Too Many Permutations (insufficient memory)")
-            print(iinfo + "Trying simpler algorithm (will contain only domains with one modified character)")
-            all_permutations = get_simple_permutations(sll, tld, lang_code)
+    except MemoryError:
+        print(ierr + "Too Many Permutations (insufficient memory)")
+        print(iinfo + "Trying simpler algorithm (will contain only domains with one modified character)")
+
+        idx = 0
+        for c in sll:
+            for altc in alt_chars(c, tld, lang_code):
+                newperm = sll[:idx] + chr(int(altc)) + sll[idx + 1:]  # replace original with altchar
+                all_permutations.append(newperm + '.' + tld)
+            idx += 1
 
     return all_permutations
-
-
-def get_simple_permutations(sll, tld, lang_code='none'):
-    all_permutations = []
-    idx = 0
-    for c in sll:
-        for altc in alt_chars(c, tld, lang_code):
-            newperm = sll[:idx] + chr(int(altc)) + sll[idx + 1:]  # replace original with altchar
-            all_permutations.append(newperm + '.' + tld)
-        idx += 1
-    return all_permutations
-
-
-# Class that holds and generates typo permutations
-class Typo:
-    def __init__(self, fqdn):
-        self.domain = Domain(fqdn)
-        self.tld = self.domain.tld
-        self.sll = self.domain.sll
-        self.neighbors = []
-
-    # swap chars next to each other
-    def generate_swap(self):
-        for i in range(0, len(self.sll) - 1):
-            # print( self.sll[i:i+2] )
-            typodomain = self.sll[0:i] + self.sll[i+1] + self.sll[i] + self.sll[i+2:]
-            print(typodomain + "." + self.tld)
-
-    # remove single chars
-    def generate_missing(self):
-        for i in range(0, len(self.sll)):
-            typodomain = self.sll[0:i] + self.sll[i + 1:]
-            print(typodomain + "." + self.tld)
-
-    # double chars
-    def generate_double(self):
-        for i in range(0, len(self.sll)):
-            typodomain = self.sll[0:i] + self.sll[i] + self.sll[i] + self.sll[i + 1:]
-            print(typodomain + "." + self.tld)
-
-    # split domain (i.e.   exa.mple.com instead of example.com)
-    def generate_split(self):
-        for i in range(0, len(self.sll) - 1):
-            typodomain = self.sll[i + 1:]
-            print(typodomain + "." + self.tld)
-
-    # neighbor chars next to the key on different keyboard layouts
-    def generate_neighbor(self, keymap):
-        if keymap == Typo.KeyMap.QWERTY:
-            km_file = "qwerty.csv"
-        elif keymap == Typo.KeyMap.QWERTZ:
-            km_file = "qwertz.csv"
-        elif keymap == Typo.KeyMap.AZERTY:
-            km_file = "azerty.csv"
-        else:
-            print(ierr + " ERROR - Unknown or unspecified Keymap!")
-            sys.exit(1)
-
-        try:
-            with open("keymaps/" + km_file, 'r') as f:
-                reader = csv.reader(f)
-                self.neighbors = list(reader)
-        except FileNotFoundError:
-            print(ierr + " Keymap file '" + km_file + "' not found!")
-            sys.exit(1)
-
-        for i in range(0, len(self.sll)):
-            alts = self.get_neighbors(self.sll[i])
-
-            for h in range(1, len(alts)):
-                if alts[h] not in (None, ""):
-                    nb = self.sll[:i] + alts[h] + self.sll[i + 1:] + '.' + self.tld
-                    print(nb)
-
-    class KeyMap:
-        QWERTY = 1
-        QWERTZ = 2
-        AZERTY = 3
-
-    def get_neighbors(self, char):
-        for row in self.neighbors:
-            if row[0] == char:
-                if show_debug:
-                    print(row)
-                return row
 
 
 class InvalidFQDNError(Exception):
@@ -515,28 +543,18 @@ class Domain:
             sys.exit()
 
 
-# check fqdn for typo domains
-def check_typo(fqdn):
-
-    typo = Typo(fqdn)
-    print("Swaps:")
-    typo.generate_swap()
-    print("Missing Chars:")
-    typo.generate_missing()
-    print("Double Chars:")
-    typo.generate_double()
-    print("Split Domain:")
-    typo.generate_split()
-    print("Neighbors:")
-    typo.generate_neighbor(typo.KeyMap.QWERTZ)
-
-
-# check fqdn for doppelganger domains
-def check_doppel(fqdn):
-    print("checking " + fqdn)
+def checkDoppel(fqdn):
+    print("checking..." + fqdn)
 
     # get tld
     # TODO: Build class to check if tld is correct and return tld and sll
+    '''
+    tldraw = fqdn.rsplit('.')[-1]
+    if show_debug:
+        print("TLD raw: " + tldraw)
+    tld = gettld(tldraw)
+    sll = fqdn.rsplit('.')[-2]
+    '''
 
     domain = Domain(fqdn)
     tld = domain.tld
@@ -544,17 +562,25 @@ def check_doppel(fqdn):
 
     domain.check_support()
 
-    # TODO: [org] zh, ko
-    lang_codes = {'org': ['bs', 'bg', 'be', 'mk', 'ru', 'sr', 'uk', 'da', 'de', 'hu', 'is', 'lv', 'lt', 'pl', 'es',
-                          'sv'], 'com': ['latin', 'lisu'], 'se': ['latin']}
+    '''
+    TODO: [org] zh, ko
+    '''
+    lang_codes = { 'org': ['bs','bg','be','mk','ru','sr','uk','da','de','hu','is','lv','lt','pl','es','sv'], 'com': ['latin','lisu'], 'se':['latin']}
+    sll_alts = []
     all_permutations = []
     nx_tlds = []
     existing_tlds = []
-    t_start = 0
 
-    if show_time:
-        print("Time start...")
-        t_start = datetime.datetime.now()
+
+    '''
+    if tld in ['ca']:
+        print(iwarn + ".ca domain does not allow IDNs with doppelganger chars.")
+        print("if example.ca is registered only it's owner can register éxample.ca")
+        print("Details: https://cira.ca/assets/Documents/Legal/IDN/faq.pdf")
+        sys.exit()
+    elif tld not in supported_tlds:
+        print(ierr + tld + " domains are not supported yet. Sorry.")
+    '''
 
     if tld in lang_codes:
         print(iinfo + tld + " uses language codes")
@@ -569,12 +595,7 @@ def check_doppel(fqdn):
         print("All Permutations: " + str(len(all_permutations)))
 
     unique_permutations = list(set(all_permutations))
-
-    if show_time:
-        t_end = datetime.datetime.now()
-        t_diff = t_end - t_start
-        print("Time: " + str(t_diff.total_seconds()) + "s")
-        sys.exit()
+    #unique_permutations = [k for k, _ in itertools.groupby(sorted(all_permutations, key=lambda x: all_permutations.index(x)))]
 
     num_permutations = len(unique_permutations)
     if show_colors:
@@ -588,12 +609,6 @@ def check_doppel(fqdn):
         for p in unique_permutations:
             print(p)
 
-    if parsed_args.output_file:
-        print(iinfo + "writing doppelgangers to file...")
-        with open(parsed_args.output_file, 'w') as file:
-            for perm in unique_permutations:
-                file.writelines(perm.encode("idna").decode() + "\n")
-        sys.exit()
 
     if parsed_args.dry_run:
         print(isucc + " doppelgangers for " + fqdn + ":")
@@ -602,13 +617,17 @@ def check_doppel(fqdn):
             print(" - " + perm.encode("idna").decode())
         sys.exit()
 
-    # DNS Check
+
+    #sys.exit()
+
+
+
     print("Checking DNS...")
 
     current_num = 0
     for domain in unique_permutations:
 
-        sys.stdout.write("Progress: %d / %d \r" % ((current_num + 1), num_permutations))
+        sys.stdout.write("Progress: %d / %d \r" % ((current_num +1), num_permutations))
         sys.stdout.flush()
 
         pc = domain.encode("idna").decode()
@@ -627,8 +646,11 @@ def check_doppel(fqdn):
             print('')
             existing_tlds.append(pc)
 
+
         except dns.resolver.NXDOMAIN:
+            #print(" - No such domain %s" % pc)
             nx_tlds.append(pc)
+
         except dns.resolver.Timeout:
             print(" - Timed out while resolving %s" % pc)
         except dns.exception.DNSException:
@@ -639,13 +661,36 @@ def check_doppel(fqdn):
             time.sleep((parsed_args.timing / 1000))
 
 
+def check_unique(item):
+    global unique_permutations
+    if item not in unique_permutations:
+        unique_permutations.append(item)
+
+
 def getcombinations(slllist):
 
     permutations = list(itertools.product(*slllist))
     return permutations
 
 
-# This function contains all lookalilke chars for each latin character that are allowed for each tld
+def gettld(t):
+    if t == 'de':
+        return t
+    elif t == 'com':
+        return t
+    elif t == 'net':
+        return t
+    elif t == 'org':
+        return t
+    elif t == 'ca':
+        return t
+    elif t == 'ch':
+        return t
+
+    else:
+        return "unknown"
+
+
 def alt_chars(c, tld, lang_code='none'):
     r = []
 
@@ -679,15 +724,16 @@ def alt_chars(c, tld, lang_code='none'):
             r = []
 
     if tld == 'se':
+        #
         #  Source: https://www.iis.se/docs/teckentabell-04.pdf
 
         if lang_code == 'latin':  # Latin - source: https://www.iis.se/docs/teckentabell-04.pdf
             if c == '3':
                 r = [0x01ef, 0x0292]
             elif c == 'a':
-                r = [0x00e0, 0x00e1, 0x00e2, 0x00e4, 0x00e5, 0x00e6, 0x00ce]
+                r == [0x00e0, 0x00e1, 0x00e2,0x00e4, 0x00e5, 0x00e6,0x00ce]
             elif c == 'b':
-                r = [0x0fe]
+                r == [0x0fe]
             elif c == 'c':
                 r = [0x00e7, 0x0107, 0x010d]
             elif c == 'd':
@@ -721,7 +767,7 @@ def alt_chars(c, tld, lang_code='none'):
             else:
                 r = []
 
-        elif lang_code == 'hebrew':  # Hebrew - source: https://www.iis.se/docs/teckentabell-04.pdf
+        elif lang_code == 'hebrew': # Hebrew - source: https://www.iis.se/docs/teckentabell-04.pdf
             print("error - hebrew support not built in yet :(")
             if c == '':
                 r = []
@@ -847,7 +893,7 @@ def alt_chars(c, tld, lang_code='none'):
         else:
             r = []
 
-    if tld in ['fr', 're', 'pm', 'wf', 'tf', 'yt']:
+    if tld in ['fr','re','pm','wf','tf','yt']:
         # allowed chars for AFNIC controlled domains
         # Source: https://www.afnic.fr/en/products-and-services/services/idn-convertor/
         if c == 'a':
@@ -1028,8 +1074,7 @@ def alt_chars(c, tld, lang_code='none'):
                 else:
                     r = []
 
-        elif lang_code in ['bs', 'bg', 'be', 'mk', 'ru', 'sr', 'uk']:  # Cyrillic
-            # source: https://www.rfc-editor.org/rfc/pdfrfc/rfc5992.txt.pdf
+        elif lang_code in ['bs', 'bg', 'be', 'mk', 'ru', 'sr', 'uk']:  # Cyrillic - source: https://www.rfc-editor.org/rfc/pdfrfc/rfc5992.txt.pdf
             # Base Cyrillic
             r = []
 
@@ -1062,7 +1107,7 @@ def alt_chars(c, tld, lang_code='none'):
             elif c == '3':
                 r = [0x0437]
 
-            if lang_code in ['bs', 'sr']:  # Bosnian and Serbian
+            if lang_code in ['bs','sr']:  # Bosnian and Serbian
                 if c == 'h':
                     r += [0x0452, 0x045b]
                 elif c == 'j':
@@ -1080,7 +1125,7 @@ def alt_chars(c, tld, lang_code='none'):
                 else:
                     r = []
 
-            if lang_code == 'be':  # Belarusian
+            if lang_code == 'be': # Belarusian
                 if c == 'b':
                     r += [0x044c]
                 elif c == 'e':
@@ -1132,6 +1177,7 @@ def alt_chars(c, tld, lang_code='none'):
                     # https://www.iana.org/domains/idn-tables/tables/tw_zh-tw_4.0.html )
 
     if tld in ['com', 'net']:
+
 
         if lang_code == 'latin':
             if c == '0':
@@ -1260,7 +1306,7 @@ def alt_chars(c, tld, lang_code='none'):
                 r = [0x017a, 0x017c, 0x017e, 0x01b6, 0x0225, 0x0240, 0x0290, 0x0291, 0x1d22, 0x1d24, 0x1d76, 0x1d8e,
                      0x1e91, 0x1e93, 0x1e95, 0x2c6c]
 
-        elif lang_code == 'none':
+        if lang_code == 'none':
             if c == 'a':
                 r = [0x00e0, 0x00e1, 0x00e2, 0x00e3, 0x00e4, 0x00e5, 0x00e6, 0x0101, 0x0103, 0x0105, 0x01ce, 0x01df,
                      0x01e1,
@@ -1273,8 +1319,7 @@ def alt_chars(c, tld, lang_code='none'):
             elif c == 'd':
                 r = [0x010f, 0x0111, 0x018b, 0x018c]
             elif c == 'e':
-                r = list(range(0x00e8, 0x00ef)) + [0x0113, 0x0115, 0x0117, 0x0119, 0x011b, 0x0153, 0x018f, 0x019e,
-                                                   0x01dd]
+                r = range(0x00e8, 0x00ef) + [0x0113, 0x0115, 0x0117, 0x0119, 0x011b, 0x0153, 0x018f, 0x019e, 0x01dd]
             elif c == 'f':
                 r = [0x017f, 0x0192]
             elif c == 'g':
@@ -1318,6 +1363,8 @@ def alt_chars(c, tld, lang_code='none'):
                 r = [0x00fd, 0x00ff, 0x0177, 0x01b4, 0x01bf, 0x01f7]
             elif c == 'z':
                 r = [0x017a, 0x017c, 0x017e, 0x01b6]
+            else:
+                r = []
 
         elif lang_code == 'UKR':
             if c == 'a':
@@ -1349,6 +1396,69 @@ def alt_chars(c, tld, lang_code='none'):
             elif c == 'y':
                 r = [0x0443, 0x0447]
 
+    return r
+
+
+#
+# TODO: not relevant - remove before release
+#
+def alt_chars_old(c):
+    r = []
+    if c == 'a':
+        r = [0x00e0, 0x00e1, 0x00e2, 0x00e3, 0x00e4, 0x00e5, 0x00e6, 0x0101, 0x0103, 0x0105, 0x01ce, 0x01df, 0x01e1,
+             0x01e3, 0x01fb]
+    elif c == 'b':
+        r = [0x0180] + list(range(0x0182, 0x0185))
+    # r = [0x0180,0x0182,0x0183,0x0184]
+    elif c == 'c':
+        r = [0x00e7, 0x0107, 0x0109, 0x010B, 0x010D, 0x0188]
+    elif c == 'd':
+        r = [0x010f, 0x0111, 0x018b, 0x018c]
+    elif c == 'e':
+        r = range(0x00e8, 0x00ef) + [0x0113, 0x0115, 0x0117, 0x0119, 0x011b, 0x0153, 0x018f, 0x019e, 0x01dd]
+    elif c == 'f':
+        r = [0x017f, 0x0192]
+    elif c == 'g':
+        r = [0x011d, 0x0111f, 0x0121, 0x0123, 0x01e5, 0x01e7, 0x01f5]
+    elif c == 'h':
+        r = [0x0125, 0x0127, 0x0195]
+    elif c == 'i':
+        r = list(range(0x00ec, 0x00ef)) + [0x0129, 0x012b, 0x012d, 0x012f, 0x0131, 0x0133, 0x01d0, 0x01f0]
+    elif c == 'j':
+        r = [0x012f, 0x0133, 0x0135, 0x01f0]
+    elif c == 'k':
+        r = [0x0137, 0x0138, 0x0199, 0x01e9]
+    elif c == 'l':
+        r = [0x013a, 0x013c, 0x013e, 0x0140, 0x0142, 0x0196, 0x0197, 0x019a, 0x01aa, 0x01ab, 0x01ad]
+    # m
+    elif c == 'n':
+        r = [0x0144, 0x0146, 0x0148, 0x0149, 0x014b, 0x01f9]
+    elif c == 'o':
+        r = [0x00f0] + list(range(0x00f2, 0x00f6)) + [0x00f8, 0x014d, 0x014f, 0x0151, 0x0153, 0x018d, 0x018f, 0x019f, 0x01a1,
+                                                0x01a3, 0x01d2, 0x01eb, 0x01ed, 0x01ff]
+    elif c == 'p':
+        r = [0x01a5, 0x01bf]
+    # q
+    elif c == 'r':
+        r = [0x0155, 0x0157, 0x0159]
+    elif c == 's':
+        r = [0x015b, 0x015d, 0x015f, 0x0162, 0x01a8]
+    elif c == 't':
+        r = [0x0163, 0x0165, 0x0167, 0x01ab, 0x01ad]
+    elif c == 'u':
+        r = list(range(0x00f9, 0x00fc)) + [0x0169, 0x016b, 0x016d, 0x016f, 0x0171, 0x0173, 0x01b0, 0x01b1, 0x01d4, 0x01d6,
+                                     0x01d8, 0x01da, 0x01dc]
+    elif c == 'v':
+        r = [0x0152, 0x01bf, 0x01f7]
+    elif c == 'w':
+        r = [0x0175, 0x019c]
+    # x
+    elif c == 'y':
+        r = [0x00fd, 0x00ff, 0x0177, 0x01b4, 0x01bf, 0x01f7]
+    elif c == 'z':
+        r = [0x017a, 0x017c, 0x017e, 0x01b6]
+    else:
+        r = []
     return r
 
 
