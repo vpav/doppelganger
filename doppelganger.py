@@ -96,6 +96,7 @@ class PermutationError(Exception):
     pass
 
 
+# print a list with supported TLDs
 def show_tld_support():
     ccomplete = "complete"
     cnotsupported = "IDN not supported"
