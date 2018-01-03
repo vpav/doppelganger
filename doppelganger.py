@@ -23,19 +23,15 @@
 #
 # Doppelgänger is a tool that creates permutations of domain names using lookalike
 # unicode characters and identifies registered domains using dns queries.
-# It can be used to identify phishing domains.
-#
+# It can be used to identify phishing and typosquatting domains.
 #
 
 #
 # TODO:
 #
-# convert input domain to lowercase
 # dns round robin for speed increase / not get blocked
 # use better algorithm for permutation generation (ram + speed)
 # use hdf5 for working with datasets larger than ram
-# move dns check to function
-# complete typo check
 
 import itertools
 import dns.resolver
@@ -227,7 +223,7 @@ Another Note: Keep in mind that while some doppelganger domains are created
     parser.add_argument("-k", "--keymap", help="Use specified keymap for finding typo domains.",
                         type=str, choices=['qwerty', 'qwertz', 'azerty'], default='qwerty')
     parser.add_argument("-o", "--output-file", help="Output permutations to file, don't do anything else.",
-                        type=str, metavar="Filename")
+                        type=str, metavar="FILENAME")
     parser.add_argument("-p", "--max-permutations", help="number of calculated permutations after a switch to a simpler"
                                                          " algorithm is done. By default this software looks for all "
                                                          "doppelganger characters, however on domains with less "
@@ -241,8 +237,9 @@ Another Note: Keep in mind that while some doppelganger domains are created
     parser.add_argument("-t", "--timing", help="Set a ms delay between DNS queries to prevent flooding DNS servers",
                         type=int, default=0)
     parser.add_argument("-v", "--verbose", action="count", help="verbose output", default=0)
-    parser.add_argument("-y", "--typo-only", action="store_true", help="Generate typos, not doppelgangers", default=0)
-    parser.add_argument("domain", help="the fqdn you want to check", nargs='?')
+    parser.add_argument("-y", "--typo-only", action="store_true", help="Domain Typosquatting mode - Generate typos, not"
+                                                                       " doppelgangers", default=0)
+    parser.add_argument("domain", help="the fqdn you want to check", nargs=1)
     parsed_args = parser.parse_args()
     if parsed_args.colors:
         if parsed_args.colors == 1:
@@ -261,10 +258,19 @@ Another Note: Keep in mind that while some doppelganger domains are created
     if parsed_args.verbose:
         show_debug = True
 
+    fqdn = str(parsed_args.domain[0]).lower()
+
     if parsed_args.typo_only:
-        check_typo(parsed_args.domain)
+        if parsed_args.keymap:
+            if parsed_args.keymap == 'qwerty':
+                check_typo(fqdn, Typo.KeyMap.QWERTY)
+            elif parsed_args.keymap == 'qwertz':
+                check_typo(fqdn, Typo.KeyMap.QWERTZ)
+            elif parsed_args.keymap == 'azerty':
+                print(ierr + "AZERTY keymap support not built in yet, sorry!")
+                sys.exit(1)
     else:
-        check_doppel(parsed_args.domain)
+        check_doppel(fqdn)
     return 0
 
 
@@ -577,10 +583,10 @@ class Domain:
             sys.exit()
 
 
-# check fqdn for typo domains
-def check_typo(fqdn):
+# check fqdn for typosquatting domains
+def check_typo(fqdn, keymap):
 
-    typo = Typo(fqdn, Typo.KeyMap.QWERTY)
+    typo = Typo(fqdn, keymap)
     typo.check()
 
 
@@ -659,6 +665,7 @@ def check_doppel(fqdn):
     check_dns(unique_permutations)
 
 
+# check dns entries of a supplied list of fqdns
 def check_dns(domain_permutations):
     # DNS Check
     print("Checking DNS...")
