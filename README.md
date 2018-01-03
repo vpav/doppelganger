@@ -94,6 +94,10 @@ As with `--dry-run`, no dns lookups will be performed.
 
 ## Lack of support for all TLDs
 
+As each TLD allows for a different subset of unicode characters, routines have to be 
+implemented for each TLD separately. As this is really time consuming this tool is limited 
+to a couple of TLDs atm. See list above.
+
 ## Too big data
 
 This tools creates a large amount of permutations. 
@@ -110,12 +114,12 @@ of time can result in a block or a rate-limitation by your dns provider
 
 Furthermore this tool does the dns lookup sequentially resulting in poor performance.
 
-## 
-
-
 
 # TODOs
 
 * Add support to perform round-robin queries to a set of user selectable dns servers
 * check existence of domain by whois entries instead of dns
+* export function for registered domains to a list / csv
+* Add support for working with (really) large sets of permutations that don't fit 
+into memory
 
