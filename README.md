@@ -14,11 +14,17 @@ It can be used to identify phishing domains. Furthermore it finds [typosquatting
 * examƿle.com (xn--examle-62b.com)
 * examᴘle.com (xn--examle-e35b.com)
 
-# Usage
+## Usage
 
 ```
 ./doppelganger.py example.com
 ```
+
+Without any flags, doppelgänger will perform a search for homographic IDNs.
+
+#### Typosquatting
+
+To search for typosquatting domains instead of IDNs use the `--typo-only` or `-y` flag.
 
 #### Dry-run mode 
 
@@ -90,15 +96,15 @@ As with `--dry-run`, no dns lookups will be performed.
 | .info | :x: no |
 | .name | :x: no |
 
-# Limitations
+## Limitations
 
-## Lack of support for all TLDs
+### Lack of support for all TLDs
 
 As each TLD allows for a different subset of unicode characters, routines have to be 
 implemented for each TLD separately. As this is really time consuming this tool is limited 
 to a couple of TLDs atm. See list above.
 
-## Too big data
+### Too big data
 
 This tools creates a large amount of permutations. 
 If your domain name is long enough, there are millions of possible doppelganger domains. Atm, this tool works in RAM only. 
@@ -107,7 +113,7 @@ This is not a big limitation though, as most malicious actors will try to change
 
 If I have time I'll add support for big data sets in the future.
 
-## DNS query speed
+### DNS query speed
 
 Performing large numbers of unique dns queries to uncached domains in a short amount 
 of time can result in a block or a rate-limitation by your dns provider
@@ -115,7 +121,7 @@ of time can result in a block or a rate-limitation by your dns provider
 Furthermore this tool does the dns lookup sequentially resulting in poor performance.
 
 
-# TODOs
+## TODOs
 
 * Add support to perform round-robin queries to a set of user selectable dns servers
 * check existence of domain by whois entries instead of dns
