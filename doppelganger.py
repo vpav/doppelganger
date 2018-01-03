@@ -336,6 +336,7 @@ def replace_lisu(sll):
     return out
 
 
+# generate complete set of permutations
 def get_permutations(sll, tld, lang_code='none'):
     pos = 0
     sll_alts = []
@@ -399,6 +400,7 @@ def get_permutations(sll, tld, lang_code='none'):
     return all_permutations
 
 
+# generate reduced set of permutations (only permutations with one changed char)
 def get_simple_permutations(sll, tld, lang_code='none'):
     all_permutations = []
     idx = 0
