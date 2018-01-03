@@ -120,7 +120,6 @@ of time can result in a block or a rate-limitation by your dns provider
 
 Furthermore this tool does the dns lookup sequentially resulting in poor performance.
 
-
 ## TODOs
 
 * Add support to perform round-robin queries to a set of user selectable dns servers
